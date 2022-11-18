@@ -1,0 +1,335 @@
+---
+title: "Sosiopolitica y Edad "
+subtitle: "¿ Tienen relación ?"
+lang: es
+date: 2022/11/1
+author: "Gladys Yohana Calambas Tunubala-TI:1059595522 - gcalambas@unal.edu.co/Jose Joaquin Sanchez Bernal-cc:1007799226- josanchezbe@unal.edu.co/Miguel Arboleda Castrillon-cc:1027933334 - miarboleda@unal.edu.co/Juan Camilo Gamboa Hena-1005716895 - jugamboah@unal.edu.co"
+format: 
+  html:
+    toc: true
+    embed-resources: true
+    css: estilo1.css
+editor: visual
+execute: 
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+# Limpia el espacio de trabajo.
+rm(list = ls())
+```
+
+```{r}
+#Carga de bibliotecas o paquetes.
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(repmis)
+library(tidyverse)
+library(sf)
+library(units)
+library(summarytools)
+library(pastecs)
+library(igraph)
+library(DataExplorer)
+library(ggpubr)
+library(readxl)
+library(rapportools)
+library(dplyr, warn.conflicts = FALSE)
+library(wk)
+library(car)
+library(datasets)
+library(leaflet)
+library(rmarkdown)
+library(ggthemes)
+library(hrbrthemes)
+library(ggExtra)
+library(ggridges)
+library(ggbeeswarm)
+library(ggdist)
+library(patchwork)
+```
+
+![](datos/arton33080.jpg){fig-align="center"}
+
+Imagen optenida de [www.registraduria.gov.co](https://www.registraduria.gov.co/La-segunda-vuelta-de-las-elecciones-presidenciales-de-2022-se-desarrollo-con.html)
+
+```{r}
+#Lectura de la base de datos
+load("datos/Medellin.RData")
+load("datos/Zona.RData")
+load("datos/ZonaEstrato.RData")
+load("datos/Estratos.RData")
+Barrios <- read_sf("datos/Barrios/BarrioVereda_2014.shp")
+IEs <- read_sf("datos/Mapa de las instituciones educativas de Medellin/Instituciones_Educativas.shp")
+IEs <- IEs %>% 
+  filter(X_MAGNAMED != 0 & Y_MAGNAMED != 0)
+Mayor <- read_excel("datos/EDAD/EDAD.xlsx",  sheet = 1)
+Menor <- read_excel("datos/EDAD/EDAD.xlsx",  sheet = 2)
+#paleta de colores
+Gustavo_Petro=c("#9e3887")
+Rodolfo_Hernandez= c("#EE9A00")
+Empate=c("navy")
+```
+
+```{r}
+Z6=select(Zona, Barrio_pertenece, Ganador_barrio, Color) 
+Z6=unique(Z6)
+Barrios<-full_join(Barrios, Z6, by=c("NOMBRE"="Barrio_pertenece"))
+Barrios$Color[is.na(Barrios$Color)] <- "Black"
+Barrios_Sin<- filter(Barrios, NOMBRE!=c("Aranjuez"))
+Barrios_Sin<- filter(Barrios_Sin, NOMBRE!=c("Miranda"))
+Barrios_Sin<- filter(Barrios_Sin, NOMBRE!=c("San Isidro"))
+Barrios_Sin<- filter(Barrios_Sin, NOMBRE!=c("Campo Valdés No.1"))
+Barrios_Sin<- filter(Barrios_Sin, NOMBRE!=c("La Salle"))
+Barrios<-filter(Barrios, NOMBRE %in% Z6$Barrio_pertenece)
+Labels= data.frame(Voto= c("Gustavo Petro","Rodolfo Hernández", "Empate"), Color=c(Gustavo_Petro,Rodolfo_Hernandez, Empate))
+```
+
+```{r}
+#Crear las zonas
+Z6<- filter(Zona, zona==6)
+Z7<- filter(Zona, zona==7)
+Z8<- filter(Zona, zona==8)
+#Crear los Circulos
+I6<- makeIcon(iconUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgzN4yDQd813AdniTJSg0AvdoLCpOjT81hSkcEcPBRQJ38ws5rvi0sgcXQIPaSkN84P-zgg2dd0ucQs-43MC8I1iwjs1o1Gj7v3EQrJvMi-y0SF1lBejBVqMy9vTLL_wEYNKWpwpU68gp-hKv7QEa0xvGpxct85NtJw_X3Jo-DC4w9dhqYyOlGCA2M-qA/s260/6.png", iconWidth = 40, iconHeight = 40)
+I7<- makeIcon(iconUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiPBWWqCSK0Bh6hAKuPvTYAvzGsaWkn7_7g0xoCHY33Nmf6m0SOjGfoKMDQYDt3niBQfAAU2IC77ngprt9TjdnOmXE97QkkyidxqoZq50kikgMIOG8Y0pMvvEvieB1O5rtgoBugbLWMjyWNWr3tTRWcbQe823H6eeIDxftxP4RAUXY51qdFspDZjRqg6Q/s260/7.png", iconWidth = 40, iconHeight = 40)
+I8<- makeIcon(iconUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjt2ewW_O0f9NbJKifyLA9s0S6o6O6vq-t-cav9Hm6wXlsF1if4puSyiZ2DX_mehs9Uam3TsEZESY10_a_lwKbCJCs5WXApGQhn85HSS2pWHiQmSfqSmeJboYrUHkdJtQ8rDbd81yj5zCGqx2tYzC5whTD2_Lz_a7gxDmbdxu74rOu0-FTYa4XXucSeug/s260/8.png", iconWidth = 40, iconHeight = 40)
+html_legend <- "<img src='https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhuyeu3u51o3fJiPUD8WqOwADY4Y6YPEu6q7UGU68hhAJz4IOa1EpvrO9vEOJcuacmddCjaCKlJgR-Qxw8INWti4n1L6EElogiRvIcYqzO_jIxvKUOrApgU6pBffIBeVwWYKsZHvXYnoKFv5vH98afg0rJ2HehTdfFMx9JcGgT0ATtq4W8SY4LwMExaUA/s1600/6.png'>Zona 6<br/>
+<img src='https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgNnAogW9635K0Z3RWvT1HZTN5EYmIW9i6zZ1KO93EMNfr2Wmvim4RZ1QVtTogvxYi72gUbTbfYe-etnQXbgDkocmXCGCp7ZWXi20MGwGNz7Z0Si0MgTSiy8pd1bqxyhl40fK2LigJZKdBCqjDimMlyuxm8FQYdbgQfWMauVkoNH96QQosRpysZHPThAw/s1600/7.png'>Zona 7<br/>
+<img src='https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiU6Jai6FWAGGrDIAbcBa7LaB5VNJuWLfvVh11o2xJM7SlGSJrZZD4v3_H-UThPBQF7sst3Cu82h9Do4mRUi3UgHFfrWIMoChqq5-kSpoeg1HRsjNoZ9NxAnsPrTdHj2C61AkkhQyGlHwS1vvZ3yy5ocYxTNnvXKfOksqabaBCkBAwjsJuYzUkGIqA3wQ/s1600/8.png'>Zona 8"
+
+```
+
+# Introducción
+
+En el siguiente análisis exploratorio podrás responder a la pregunta ¿Existe relación en la calidad de vida de las personas, y las elecciones presidenciales ¿. Esta es una pregunta que al ser respondida nos da una idea del impacto que tiene la calidad de vida de las personas con la elección de un presidente.
+
+## Objetivos
+
+Este es una análisis que tiene como objetivo analizar si existe relación en la calidad de vida de las personas, y las elecciones presidenciales. También saber cuál fue la preferencia política de cada sector socioeconomico y las posibles edades de los votantes.
+
+## Metodologia
+
+La metodología consta de unir dos bases de tatos y hallar las posibles relaciones entre ellas, las bases de datos usadas para el siguiente análisis fueron las siguientes:
+
+-   [Resultados Actas E14](https://presidente2v2022.registraduria.gov.co/)
+
+-   [Saber_11\_\_2020-2](https://drive.google.com/file/d/1gWPz4AOGYb-IFLwhOMqNVyRymsU-LHsX/view?ts=63525950)
+
+L as dos bases de datos nos brindan información totalmente diferente, los votos de cada candidato según la mesa y colegio de votación, con esta información podemos resaltar que la información que comparten son los colegios, donde en ellos votaron los adultos para las elecciones presidenciales y los estudiantes presentaron su examen de ICFES.
+
+Con esta información el grupo de trabajo empezó a buscar las posibles relaciones que existen entre cada base de datos, ejemplo:
+
+-   La base de datos del ICFES tiene información socioeconómica de cada alumno y su núcleo familiar, con eso pudimos asociar que los padres de dicho alumno son posibles votantes y uno de los posibles votos del sector.
+
+![](logo-elecciones-2022.svg){width="694"}
+
+Imagen optenida de [www.larepublica.co](https://www.larepublica.co/elecciones-presidenciales-2022)
+
+# Mapa de las preferencias politicas en la comuna 4 de Medellin
+
+```{r}
+Map<- leaflet(Barrios) %>%
+  addTiles(group = "OSM (default)")  %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "World")%>%
+  
+  addPolygons(data = Barrios, color= ~as.character(Color), weight = 1,fill = TRUE, opacity = 1, fillOpacity = 0.9, highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),popup = ~NOMBRE) %>% 
+  
+  addPolygons(data = Barrios_Sin, color= "#ddd9dd", weight = 1,fill = TRUE, opacity = 1, fillOpacity = 0.2, highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),popup = ~NOMBRE, group="White") %>% 
+  
+  addPolygons(data = Barrios_Sin, color= ~as.character(Color), weight = 1,fill = TRUE, opacity = 1, fillOpacity = 0.3, highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),popup = ~NOMBRE,group="Black") %>% 
+  
+addMarkers(data = Z6,label = ~puesto, lng =~longitud, lat= ~latitud, icon = I6, group = "Zona 6") %>%
+  
+  addMarkers(data = Z7,label = ~puesto, lng =~longitud, lat=~latitud,icon = I7,group = "Zona 7") %>% 
+  
+  addMarkers(data = Z8,label = ~puesto, lng =~longitud, lat=~latitud, icon = I8,group = "Zona 8") %>% 
+
+addCircleMarkers(data = Zona,label = ~puesto, lng =~longitud, lat= ~latitud, radius = 0.3, group = "Circle",opacity = 2, color = "Cyan") %>% 
+  setView( -75.61496641154946,6.257366363905451, 11.45)  %>%
+  
+  addControl(html = html_legend, position = "bottomleft") %>% 
+  
+  addLayersControl(
+    baseGroups = c("OSM (default)", "World"),
+    overlayGroups = c("Zona 6","Zona 7","Zona 8","Circle","Black","White" ))%>%
+  
+  addLegend(data= Labels,"topright", labels = ~Voto, colors = ~Color, opacity = 1)%>% hideGroup(c("Zona 6","Zona 7","Zona 8","White"))
+Map
+```
+
+Este mapa es la ilustración resumida de la comuna 4 sectores  6 ,7, 8, donde gano cada candidato, cada candidato esta representado por los siguientes colores:
+
+-   AMARILLO: El amarillo es el color donde gano Rodolfo Hernández.
+
+-   VIOLETA: El violeta es el color que denota donde gano el candidato Gustavo Petro.
+
+En el siguiente link puedes ver imformacion importante sobre la comuna: [Información socioeconómica Comuna 4](https://www.medellin.gov.co/irj/go/km/docs/pccdesign/medellin/Temas/PlaneacionMunicipal/IndicadoresEstadisticas/2017/Shared%20Content/Comuna4%20Aranjuez.pdf)
+
+# Grficas con imformacion importante
+
+A continuación mostraremos graficas donde correlacionamos información importante de las dos bases de datos
+
+## Preferencias de los candidatos según la edad
+
+```{r}
+p3 <- ggplot(Mayor, aes(x = ganador_mesa)) + geom_bar(fill =c (Gustavo_Petro, Rodolfo_Hernandez)) + labs(title='Preferencias de candidatos\nen la edad mayor', x = "Ganador de las mesas",y = "Cantida de mesas ganadoras" ) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+   scale_y_continuous (limits = c(0,180),expand = c(0,0),breaks=seq(0, 180, 20))
+  
+p4 <- ggplot(Menor, aes(x = ganador_mesa)) + geom_bar(fill= c(Gustavo_Petro, Rodolfo_Hernandez)) + labs(title='Preferencias de candidatos\nen los joves aptos para votar', x = "Ganador de las mesas",y = "Cantida de mesas ganadoras") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  scale_y_continuous (limits = c(0,150),expand = c(0,0),breaks=seq(0,150,20))
+
+con <- (p3 + p4)
+con + plot_annotation()
+```
+
+##### Figura N°1
+
+#### 
+
+La grafica nos muestra las prefere4ncias políticas dependiendo de la edd de los votantes. Estos datos fueron representados a través de una hipótesis, partiendo de que la mitad de las mesas de votación fueron exclusivas para personas mayores de edad y la otra mitad fueron exclusivas de adultos jóvenes.
+
+### Preferencia de los candidatos en los adultos
+
+```{r}
+Mayor %>% 
+  group_by(barrio_pertenece) %>% 
+  summarise(votos_petro = sum(votos_petro), votos_hernandez = sum(votos_hernández)) %>%
+  pivot_longer(!barrio_pertenece, names_to = "Candidato", values_to = "Votos_por_barrio") %>% 
+  mutate(Candidato = if_else(Candidato == "votos_petro", "Petro", "Hernández")) %>% 
+  ggplot(aes(barrio_pertenece, Votos_por_barrio, group = Candidato, fill = Candidato)) +
+  geom_col(position = position_dodge()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+   scale_fill_manual(values=c(Rodolfo_Hernandez, Gustavo_Petro)) +
+  labs(x = "Barrios",y = "Votos por Barrio")
+```
+
+##### Figura N°2
+
+En esta gráfica dónde se analiza la cantidad de votos de las personas jóvenes por los mismos barrios de la zona 6, 7 y 8 se concluye que a diferencia del candidato de preferencia en las personas mayores el candidato ganador en los jóvenes es Gustavo Petro donde 11 barrios de los 12 que se encuentran fue el candidato elegido, el único barrio que fue de la misma preferencia de las personas mayores fue Berlín, sin embargo no se observa una gran diferencia de los votos entre los dos candidatos, tienen votaciones muy similares excluyendo el barrio de sevilla que los votos de Rodolfo Hernández son casi 1/3 de los de Gustavo Petro. Campo Valdés es uno de los barrios con mayor cantidad de votos por su gran zona de cobertura. En los jóvenes hay menor cantidad de votos ya que si analizamos el candidato con mayor votos en Campo Valdés solo logra alcanzar un rango aproximado de 0 votos a 3.700 votos. En los jóvenes existen pensamientos muy parecidos sobre que partido político debe de gobernan en Colombia, por ende en la mayoría de las personas jóvenes le dan su voto en confianza al partido de la izquierda.
+
+### Preferencia de los candidatos en los jovenes
+
+```{r}
+Menor %>% 
+  group_by(barrio_pertenece) %>% 
+  summarise(votos_petro = sum(votos_petro), votos_hernandez = sum(votos_hernández)) %>%
+  pivot_longer(!barrio_pertenece, names_to = "Candidato", values_to = "Votos_por_barrio") %>% 
+  mutate(Candidato = if_else(Candidato == "votos_petro", "Petro", "Hernández")) %>% 
+  ggplot(aes(barrio_pertenece, Votos_por_barrio, group = Candidato, fill = Candidato)) +
+  geom_col(position = position_dodge()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+   scale_fill_manual(values=c(Rodolfo_Hernandez, Gustavo_Petro)) +
+  labs( x = "Barrios",y = "Votos por Barrio")
+```
+
+##### Figura N°3
+
+En esta gráfica dónde se analiza la cantidad de votos de las personas jóvenes por los mismos barrios de la zona 6, 7 y 8 se concluye que a diferencia del candidato de preferencia en las personas mayores el candidato ganador en los jóvenes es Gustavo Petro donde 11 barrios de los 12 que se encuentran fue el candidato elegido, el único barrio que fue de la misma preferencia de las personas mayores fue Berlín, sin embargo no se observa una gran diferencia de los votos entre los dos candidatos, tienen votaciones muy similares excluyendo el barrio de sevilla que los votos de Rodolfo Hernández son casi 1/3 de los de Gustavo Petro. Campo Valdés es uno de los barrios con mayor cantidad de votos por su gran zona de cobertura. En los jóvenes hay menor cantidad de votos ya que si analizamos el candidato con mayor votos en Campo Valdés solo logra alcanzar un rango aproximado de 0 votos a 3.700 votos. En los jóvenes existen pensamientos muy parecidos sobre que partido político debe de gobernan en Colombia, por ende en la mayoría de las personas jóvenes le dan su voto en confianza al partido de la izquierda.
+
+### Preferencia de los candidatos de la edad adulta según la zona
+
+```{r}
+Mayor %>% 
+  group_by(zona) %>% 
+  summarise(votos_petro = sum(votos_petro), votos_hernandez = sum(votos_hernández)) %>%
+  pivot_longer(!zona, names_to = "Candidato", values_to = "Votos_por_barrio") %>% 
+  mutate(Candidato = if_else(Candidato == "votos_petro", "Petro", "Hernández")) %>% 
+  ggplot(aes(zona, Votos_por_barrio, group = Candidato, fill = Candidato)) +
+  geom_col(position = position_dodge()) +
+   scale_fill_manual(values=c(Rodolfo_Hernandez, Gustavo_Petro)) +
+  labs(x = "Zona",y = "Votos por Zona")
+```
+
+##### Figura N°4
+
+La grafica anterior muestra las 3 zonas donde se realizaron los análisis( comuna 4 zona 6, 7 y 8 ), podemos notar que la diferencia en votos por zona en su mayoría van a favor del candidato Rodolfo Hernández.
+
+### Preferencia de los candidatos los jóvenes según la zona
+
+```{r}
+Menor %>% 
+  group_by(zona) %>% 
+  summarise(votos_petro = sum(votos_petro), votos_hernandez = sum(votos_hernández)) %>%
+  pivot_longer(!zona, names_to = "Candidato", values_to = "Votos_por_barrio") %>% 
+  mutate(Candidato = if_else(Candidato == "votos_petro", "Petro", "Hernández")) %>% 
+  ggplot(aes(zona, Votos_por_barrio, group = Candidato, fill = Candidato)) +
+  geom_col(position = position_dodge()) +
+   scale_fill_manual(values=c(Rodolfo_Hernandez, Gustavo_Petro)) +
+  labs(x = "Zonas",y = "Votos por Zona")
+```
+
+##### Figura N°5
+
+Las zonas 6, 7 y 8 están conformadas por diferentes barrios donde el candidato mejor votado en los jóvenes es Gustavo Petro, esto se puede concluir desde la gráfica del candidato elegido en los diferentes barrios. La zona 7 y 8 poseen una similitud en la cantidad de votantes jóvenes ya que no presentan una gran variación si se realiza una comparación entre ellas, por esto la cantidad de votos que obtuvo Gustavo Petro en estas dos zonas son muy semejantes en su altura donde se entiende que la altura es la cantidad de votos obtenidos. Rodolfo Hernández obtuvo un mayor apoyo de los jóvenes en la zona 6 su diferencia es menor a la zona 7 y 8, (se debe de observar muy bien para poder realizar este análisis).
+
+## Diagrama Barrio por estrato
+
+```{r, fig.width=8, fig.height= 8}
+ZonaEstrato<- filter(ZonaEstrato, Barrio_pertenece!="Palermo")
+ggplot(ZonaEstrato, aes(x = Estrato, y = factor(Barrio_pertenece), na.rm=TRUE, fill = stat(x), xlab= "Estrato")) +
+  geom_density_ridges_gradient() +
+  scale_fill_viridis_c(name = "Estrato", option = "C") + labs(
+    x = "Estrato", y= "Barrios")+ scale_x_continuous (limits = c(0,6),expand = c(0,0),breaks=seq(0,6,1))
+```
+
+##### Figura N°6
+
+De la gráfica podríamos concluir que un su mayoría, los estrados que predominan en cada vario son los estratos bajos.
+
+## Distribución de los estratos en los barrios
+
+```{r, fig.width=6, fig.height= 6}
+ggplot(ZonaEstrato, aes(x = Barrio_pertenece, y = Estrato, color = Barrio_pertenece)) +
+  geom_quasirandom()+  labs( x = "Barrios",
+        y = "Estrato"  )+
+  theme(legend.position = "none")+
+    coord_flip() 
+```
+
+##### Figura N°7
+
+En los barrios que se observan en el diagrama de distribución los estratos que mas se presentan en los barrios es el Estrato 2 y 3 siguiendo en cantidad el Estrato 1, son muy pocos los barrios que presentan un estrato 1 y 4, y los Estratos 5 y 6 solo se presentan en tres barrios cada uno.
+
+Moravia es el barrio que solo posee dos Estratos (1 y 2), Miranda posee desde el Estrato 0 hasta el Estrato 6, es el único barrios de la zona 6, 7 y 8 que tiene los 6 Estratos.
+
+## Comodidades de los estratos
+
+```{r}
+Estratos %>%
+  ggplot(aes(x = factor(Estrato),y= Total))+
+  geom_boxplot(color="black", outlier.colour="Black",fill=Rodolfo_Hernandez)+
+    labs( y = "Comodidades del hogar",
+        x = "Estrato")
+```
+
+##### Figura N°8
+
+Este diagrama de cajas representa la calidad de vida que poseen los núcleos familiares dependiendo el estrato de la vivienda. Como era de esperarse los núcleos familiares de estratos altos poseen mejor calidad de vida que las familias de estratos bajos.
+
+# Cnclusiones 
+
+1.  Si comparamos las grafica N°6 Y 8 podemos concluir lo siguiente; como en la gráfica N°6 podemos observar que los estratos que predominan son los estratos bajos ( 1, 2,3 ) y que en la gráfica N°8 la calidad de vida de estos estratos no es tan buena.
+
+    En la comuna 4 de Medellín en las zonas 6 , 7 y 8 la situación económica no fue un factor importante para la posible elección de un candidato, por otra parte este comportamiento puede significarse por la historia y tradición política propia de la región.
+
+2.  Si comparamos la gráfica N°7 donde podemos ver la distribución de los estratos, con la gráfica N°3 donde encontramos los votos de adultos jóvenes y cantidad de votos de cada candidato por barrio.
+
+    Podemos concluir que en los barrios el estrado del núcleo familiar que mas importancia tiene es el estrato 3, donde en la mayoría de los barrios gana el candidato Gustavo Petro. Esto quiere decir que aunque la mayoría de los votos de adultos jóvenes tenían un candidato preferido  el voto de las
+    personas mayores tiene más repercusión a la ora del conteo total.
+
+3.  Con la conclusión numero 2 podemos decir que la tradición política ya no es algo importante en los adultos jóvenes, aunque sigue existiendo dicha tradición ya que sigue la diferencia de votos no fue algo totalitario.
+
+# Hipótesis
+
+Podríamos concluir este análisis diciendo que en la comuna 4 de Medellín donde la mayoría de familias son de estratos bajos, con una calidad de vida promedio, la ideología política tiene mucha importancia histórica, ya que sin importar que el que hay un gobierno que propone muchos beneficios a las familias de estratos bajos estas familias votan por su candidato predilecto que históricamente rivaliza con sus ideologías. Aun que existe un leve cambio en esta ideología podemos notar que la historia y tradición
+esta muy arraigada a las familias.
+
+ 
+
+
