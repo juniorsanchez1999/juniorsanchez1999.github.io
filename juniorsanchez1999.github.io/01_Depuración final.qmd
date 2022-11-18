@@ -1,0 +1,239 @@
+---
+title: "Trabajo Final.U"
+author: "Gladys Yohana Calambas Tunubala/ Juan Camilo Gamboa Henao/Jose Joaquin Sanchez Bernal/Miguel Arboleda Castrillon"
+format: html
+editor: visual
+---
+
+```{r}
+# Limpia el espacio de trabajo.
+rm(list = ls())
+```
+
+```{r}
+# Carga de bibliotecas o paquetes.
+library(readxl)
+library(dplyr)
+library(repmis)
+library(tidyverse)
+library(sf)
+library(units)
+library(summarytools)
+library(pastecs)
+library(igraph)
+library(DataExplorer)
+library(ggpubr)
+library(readxl)
+library(rapportools)
+library(pastecs)
+library(dplyr, warn.conflicts = FALSE)
+library(wk)
+library(car)
+library(datasets)
+```
+
+# Lectura de la base de datos
+
+```{r}
+#Base de datos de las pruebas Saber once
+ICFES <- read_csv("datos/ICFES/Saber_11__2020-2.csv")
+#Base de datos de las coordenanadas de las instituciones educativas (puestos de votacion)
+COOR_P6<- read_xlsx("datos/Medellin_coordenadas_original/MESAS DE VOTACIÓN.xlsx",
+                                    sheet = 1)
+COOR_P7<- read_xlsx("datos/Medellin_coordenadas_original/MESAS DE VOTACIÓN.xlsx",
+                                    sheet = 2)
+COOR_P8<- read_xlsx("datos/Medellin_coordenadas_original/MESAS DE VOTACIÓN.xlsx",
+                                    sheet = 3)
+```
+
+# Filtros por Departamento, Municipio
+
+```{r}
+#Filtramos los datos con el codigo del municipio de Medellin que es 05001
+Medellin <- ICFES %>%
+  filter(ESTU_COD_RESIDE_MCPIO == "05001", preserve = TRUE)
+```
+
+# Calculo de la fecha de nacimineto
+
+```{r}
+#Para saber si ellos estaban aptos para votar en esa fecha
+# Elejimos el 19 de Enero del 2022 ya que seir meses antes de la fecha para las votaciones de eleccion del presindente en la primera vuelta
+dia_Votacion <- as.Date("2022/01/19")
+## se hace la diferencia cuando de nacimiento hasta el dia de la votacion para conocer si eran mayores de edad
+Medellin  <- Medellin %>% mutate(Fecha_Nacimiento = as.Date.character(ESTU_FECHANACIMIENTO, format='%m/%d/%Y\n%H:%M:%S'),
+         Edad = floor(unclass(difftime(dia_Votacion, Fecha_Nacimiento)) / 365.25))
+```
+
+```{r}
+#Se remplazan los valores atipicos fuera de la edad como los que tienen mas de 200 años y menores a 5 año
+Medellin$Edad[Medellin$Edad < 5]<- NA
+Medellin$Edad <-  gsub(2019,NA,Medellin$Edad)
+Medellin$Edad <-  gsub(2018,NA,Medellin$Edad)
+Medellin$Edad = as.numeric(Medellin$Edad)
+#Medellin %>%
+  #filter(edad > 2017)
+```
+
+```{r}
+# Medellin %>% filter(edad == NA)
+#Estrato <- Medellin %>% select(ESTU_TIPODOCUMENTO, FAMI_ESTRATOVIVIENDA)
+Medellin <- Medellin %>%
+  mutate(A = ifelse(FAMI_ESTRATOVIVIENDA == "Estrato 1" , 1, 0))
+Medellin <- Medellin %>%
+  mutate(AA = ifelse(FAMI_ESTRATOVIVIENDA == "Estrato 2" , 2, 0))
+Medellin <- Medellin %>%
+  mutate(AAA = ifelse(FAMI_ESTRATOVIVIENDA == "Estrato 3" , 3, 0))
+Medellin <- Medellin %>%
+  mutate(AAAA = ifelse(FAMI_ESTRATOVIVIENDA == "Estrato 4" , 4, 0))
+Medellin <- Medellin %>%
+  mutate(AAAAA = ifelse(FAMI_ESTRATOVIVIENDA == "Estrato 5" , 5, 0))
+Medellin <- Medellin %>%
+  mutate(AAAAAA = ifelse(FAMI_ESTRATOVIVIENDA == "Estrato 6" , 6, 0))
+Medellin <- Medellin %>%
+  mutate(Estrato = A+AA+AAA+AAAA+AAAAA+AAAAAA)
+Medellin = Medellin %>% dplyr::select(everything(),- c(A,AA,AAA,AAAA,AAAAA,AAAAAA) )
+```
+
+# Ganador de las elecciones por barrio
+
+```{r}
+Zona<- full_join(COOR_P6,COOR_P7, by = c("grupo", "zona", "puesto", "mesa", "votos_hernández", "votos_petro", "votos_blanco", "votos_nulos", "votos_no_marcados", "longitud", "latitud", "Barrio_pertenece"))
+Zona<- full_join(Zona,COOR_P8, by = c("grupo", "zona", "puesto", "mesa", "votos_hernández", "votos_petro", "votos_blanco", "votos_nulos", "votos_no_marcados", "longitud", "latitud", "Barrio_pertenece"))
+```
+
+```{r}
+#paleta de colores
+Gustavo_Petro=c("#9e3887")
+Rodolfo_Hernandez= c("#EE9A00")
+Empate=c("navy")
+#si es positivo gano rodolfo si es negativo gano petro
+Zona<- mutate(Zona,Diferencia=votos_hernández-votos_petro)
+#Agrupa por barrio para determinar quein gano en el barrio
+Zonas<- split(Zona, Zona$Barrio_pertenece)
+names(Zonas)<- c(1:12)
+Zonas[["1"]]=mutate(Zonas[["1"]], Total_votos = colSums(Zonas[["1"]][,13]))
+Zonas[["2"]]=mutate(Zonas[["2"]], Total_votos = colSums(Zonas[["2"]][,13]))
+Zonas[["3"]]=mutate(Zonas[["3"]], Total_votos = colSums(Zonas[["3"]][,13]))
+Zonas[["4"]]=mutate(Zonas[["4"]], Total_votos = colSums(Zonas[["4"]][,13]))
+Zonas[["5"]]=mutate(Zonas[["5"]], Total_votos = colSums(Zonas[["5"]][,13]))
+Zonas[["6"]]=mutate(Zonas[["6"]], Total_votos = colSums(Zonas[["6"]][,13]))
+Zonas[["7"]]=mutate(Zonas[["7"]], Total_votos = colSums(Zonas[["7"]][,13]))
+Zonas[["8"]]=mutate(Zonas[["8"]], Total_votos = colSums(Zonas[["8"]][,13]))
+Zonas[["9"]]=mutate(Zonas[["9"]], Total_votos = colSums(Zonas[["9"]][,13]))
+Zonas[["10"]]=mutate(Zonas[["10"]], Total_votos = colSums(Zonas[["10"]][,13]))
+Zonas[["11"]]=mutate(Zonas[["11"]], Total_votos = colSums(Zonas[["11"]][,13]))
+Zonas[["12"]]=mutate(Zonas[["12"]], Total_votos = colSums(Zonas[["12"]][,13]))
+Zona<- do.call(rbind, Zonas)
+Zona=select(Zona,zona,puesto,longitud,latitud,Barrio_pertenece,Total_votos)
+Zona=unique(Zona)
+Zona=mutate(Zona,Ganador_barrio=ifelse(Total_votos>0,"Rodolfo Hernández", "Gustavo Petro"))
+Zona=mutate(Zona,Ganador_barrio=ifelse(Total_votos>0,"Rodolfo Hernández", "Gustavo Petro")) %>% mutate(Color=ifelse(Ganador_barrio=="Rodolfo Hernández",Rodolfo_Hernandez,Gustavo_Petro))
+```
+
+# Se crea el dataframe de estrato
+
+```{r}
+Zona6 <-Medellin %>%  filter(COLE_NOMBRE_ESTABLECIMIENTO %in% c("INST EDUC JOSE ANTONIO GALAN" , "INST EDUC HERNAN TORO AGUDELO", "INST EDUC RODRIGO LARA BONILLA", "INST EDUC SAN JUAN BAUTISTA DE LA SALLE"), preserve = TRUE) %>% arrange(COLE_NOMBRE_ESTABLECIMIENTO) %>% select(COLE_NOMBRE_ESTABLECIMIENTO, Estrato,Edad, 21:28 , 17:18)%>% mutate(zona=6)
+
+
+Zona7 <- Medellin %>% filter(COLE_NOMBRE_ESTABLECIMIENTO %in% c(
+"COL AGUSTINIANO DE SAN NICOLAS" , 
+"INST EDUC MONSEÑOR FRANCISCO CRISTOBAL TORO", 
+"INST EDUC GILBERTO ALZATE AVENDAÑO", 
+"INST EDUC CAMPO VALDES",	
+"INST EDUC SAN JUAN BOSCO",
+"INST EDUC JOSE EUSEBIO CARO",
+"INST EDUC LORENZA VILLEGAS DE SANTOS",
+"INST EDUC GILBERTO ALZATE AVENDAÑO"), preserve = TRUE) %>% arrange(COLE_NOMBRE_ESTABLECIMIENTO) %>% select(COLE_NOMBRE_ESTABLECIMIENTO, Estrato,Edad, 21:28 , 17:18) %>% mutate(zona=7)
+
+Zona8 <-Medellin %>%  filter(COLE_NOMBRE_ESTABLECIMIENTO %in% c("INST EDUC ALFONSO MORA NARANJO" , "INST EDUC JOSE MARIA BRAVO MARQUEZ", "INST EDUC FRANCISCO MIRANDA", "INST EDUC JAVIERA LONDOÑO-SEVILLA", "INST EDUC EL BOSQUE", "	
+INST EDUC FRANCISCO MIRANDA"), preserve = TRUE) %>% arrange(COLE_NOMBRE_ESTABLECIMIENTO) %>% select(COLE_NOMBRE_ESTABLECIMIENTO, Estrato,Edad, 21:28 , 17:18  )%>% mutate(zona=8)
+EstratoICFEST<- full_join(Zona6,Zona7,by = c("COLE_NOMBRE_ESTABLECIMIENTO", "Estrato", "Edad", "FAMI_TIENEINTERNET", "FAMI_TIENESERVICIOTV", "FAMI_TIENECOMPUTADOR", "FAMI_TIENELAVADORA", "FAMI_TIENEHORNOMICROOGAS", "FAMI_TIENEAUTOMOVIL", "FAMI_TIENEMOTOCICLETA", "FAMI_TIENECONSOLAVIDEOJUEGOS", "FAMI_EDUCACIONPADRE", "FAMI_EDUCACIONMADRE", "zona"))
+EstratoICFEST<- full_join(EstratoICFEST,Zona8,by = c("COLE_NOMBRE_ESTABLECIMIENTO", "Estrato", "Edad", "FAMI_TIENEINTERNET", "FAMI_TIENESERVICIOTV", "FAMI_TIENECOMPUTADOR", "FAMI_TIENELAVADORA", "FAMI_TIENEHORNOMICROOGAS", "FAMI_TIENEAUTOMOVIL", "FAMI_TIENEMOTOCICLETA", "FAMI_TIENECONSOLAVIDEOJUEGOS", "FAMI_EDUCACIONPADRE", "FAMI_EDUCACIONMADRE", "zona"))
+```
+
+```{r}
+names(EstratoICFEST)
+```
+
+```{r}
+#EstratoICFEST=EstratoICFEST %>% select(COLE_NOMBRE_ESTABLECIMIENTO, Zona, Estrato,Edad)
+names(EstratoICFEST)<- c("puesto","Estrato","Edad","FAMI_TIENEINTERNET","FAMI_TIENESERVICIOTV","FAMI_TIENECOMPUTADOR","FAMI_TIENELAVADORA", "FAMI_TIENEHORNOMICROOGAS","FAMI_TIENEAUTOMOVIL","FAMI_TIENEMOTOCICLETA",       "FAMI_TIENECONSOLAVIDEOJUEGOS","FAMI_EDUCACIONPADRE","FAMI_EDUCACIONMADRE",         "Zona" )
+Zona$puesto <-  gsub("I.E","INST EDUC",Zona$puesto)
+#EstratoICFEST$puesto <-  gsub("COL","",EstratoICFEST$puesto)
+Zona$puesto <-  gsub("SEC ESC TOMAS CARRASQUILLA","SEC ESC TOMAS CARRASQUILLA NO 1",Zona$puesto)
+Zona$puesto <-  gsub("INST EDUC JAVIERA LONDOÑO","INST EDUC JAVIERA LONDOÑO-SEVILLA",Zona$puesto)
+Zona$puesto <-  gsub("SEC ESC SUSANA DIAZ IE RODRIGO L BONILLA" ,"INST EDUC RODRIGO LARA BONILLA",Zona$puesto)
+Zona$puesto <-  gsub("INST EDUC MONSEÑOR FCO. CRISTOBAL T" ,"INST EDUC MONSEÑOR FRANCISCO CRISTOBAL TORO",Zona$puesto)
+ZonaEstrato<- right_join(Zona,EstratoICFEST,by="puesto","zona")
+```
+
+## Guarda la base de datos en formato RData.
+
+```{r}
+save(Medellin , file = "datos/Medellin.RData")
+save(Zona , file = "datos/Zona.RData")
+save(ZonaEstrato , file = "datos/ZonaEstrato.RData")
+```
+
+```{r}
+ZonaEstrato<- mutate(ZonaEstrato, Total0=ifelse(FAMI_TIENEINTERNET=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total1=ifelse(FAMI_TIENESERVICIOTV=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total2=ifelse(FAMI_TIENECOMPUTADOR=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total3=ifelse(FAMI_TIENELAVADORA=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total4=ifelse(FAMI_TIENEHORNOMICROOGAS=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total5=ifelse(FAMI_TIENEAUTOMOVIL=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total6=ifelse(FAMI_TIENEMOTOCICLETA=="Si", 1, 0))
+ZonaEstrato<- mutate(ZonaEstrato, Total7=ifelse(FAMI_TIENECONSOLAVIDEOJUEGOS=="Si", 1, 0))
+ZonaEstrato$Total = rowSums(ZonaEstrato[,22:29])
+Estrato<- split(ZonaEstrato, ZonaEstrato$Estrato)
+```
+
+```{r}
+Estrato[["0"]]=mutate(Estrato[["0"]], GanadorEstrato= "Rodolfo Hernández")
+Estrato[["1"]]=mutate(Estrato[["1"]], GanadorEstrato= "Rodolfo Hernández")
+Estrato[["2"]]=mutate(Estrato[["2"]], GanadorEstrato= "Rodolfo Hernández")
+Estrato[["3"]]=mutate(Estrato[["3"]], GanadorEstrato= "Rodolfo Hernández")
+Estrato[["4"]]=mutate(Estrato[["4"]], GanadorEstrato= "Rodolfo Hernández")
+Estrato[["5"]]=mutate(Estrato[["5"]], GanadorEstrato= "Rodolfo Hernández")
+Estrato[["6"]]=mutate(Estrato[["6"]], GanadorEstrato= "Rodolfo Hernández")
+Estratos<- do.call(rbind, Estrato)
+```
+
+```{r}
+Estrato_1_2<- filter(Estratos, Estrato%in% c(0, 1,2))
+Estrato_3_4<- filter(Estratos, Estrato%in% c(3,4))
+Estrato_5_6<- filter(Estratos, Estrato%in% c(5,6))
+```
+
+```{r}
+Estrato_1_2 %>%
+  ggplot(aes(x = factor(Estrato),y= Total, fill= factor(GanadorEstrato)))+
+  geom_boxplot(color="black", outlier.colour="Black",fill=Rodolfo_Hernandez)+
+    labs(title="Comodidades de los estratos bajo", x = "Comodidades del hogar",
+        y = "Estrato", fill= "") +
+    theme(legend.position = "none")
+```
+
+```{r}
+Estrato_3_4 %>%
+  ggplot(aes(x = factor(Estrato),y= Total, fill= factor(Estrato)))+
+  geom_boxplot(color="black", outlier.colour="Black",fill=Rodolfo_Hernandez)+
+    labs(title="Comodidades de los estratos medio", x = "Comodidades del hogar",
+        y = "Estrato", fill= "") +
+    theme(legend.position = "none")
+```
+
+```{r}
+Estrato_5_6 %>%
+  ggplot(aes(x = factor(Estrato),y= Total, fill= factor(Estrato)))+
+  geom_boxplot(color="black", outlier.colour="Black",fill=Rodolfo_Hernandez)+
+    labs(title="Comodidades de los estratos alto", x = "Comodidades del hogar",
+        y = "Estrato", fill= "") +
+    theme(legend.position = "none")
+```
+
+```{r}
+
+```
