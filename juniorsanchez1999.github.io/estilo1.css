@@ -1,0 +1,8 @@
+.main-container {
+  max-width: 100% !important;
+  margin: auto;
+}
+
+pre {
+  font-size: 9px
+}
